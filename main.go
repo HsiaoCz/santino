@@ -2,23 +2,42 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
-type Handler func(Context) error
+type Handler[T any] func(Context[T]) error
 
-func POST(route string, h Handler) {
-	h(Context{})
+func makeHTTPHandler[T any](h Handler[T]) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var reqData T
+		if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
+			// todo
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		h(Context[T]{
+			r:            r,
+			w:            w,
+			RequestParam: reqData,
+		})
+	}
+}
+
+func POST[T any](route string, h Handler[T]) {
+	http.HandleFunc(route, makeHTTPHandler(h))
 }
 
 func main() {
 
-	POST("/user", handlerCreateUser)
+	POST("/user", handlerCreateUser[CreateUserParams])
+	http.ListenAndServe(":9091", nil)
 }
 
-type Context struct {
-	r *http.Request
-	w http.ResponseWriter
+type Context[T any] struct {
+	r            *http.Request
+	w            http.ResponseWriter
+	RequestParam T
 }
 
 // DATA
@@ -34,17 +53,14 @@ type User struct {
 }
 
 type CreateUserParams struct {
-	Email     string
-	Password  string
-	FirstName string
-	LastName  string
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Username string `json:"username"`
 }
 
-func handlerCreateUser(c Context) error {
-	var params CreateUserParams
-	if err := json.NewDecoder(c.r.Body).Decode(&params); err != nil {
-		return err
-	}
+func handlerCreateUser[T any](c Context[T]) error {
+	userParams := c.RequestParam
+	fmt.Println(userParams)
 	var user any
 	return JSON(http.StatusOK, user)
 }
