@@ -6,6 +6,10 @@ import (
 	"net/http"
 )
 
+type Validater interface {
+	Vaildate() []error
+}
+
 type Handler[T any] func(Context[T]) error
 
 func makeHTTPHandler[T any](h Handler[T]) http.HandlerFunc {
@@ -16,12 +20,23 @@ func makeHTTPHandler[T any](h Handler[T]) http.HandlerFunc {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		errs := Validate(reqData)
+		if len(errs) > 0 {
+			panic(errs)
+		}
 		h(Context[T]{
 			r:            r,
 			w:            w,
 			RequestParam: reqData,
 		})
 	}
+}
+
+func Validate(data any) []error {
+	if v, ok := data.(Validater); ok {
+		return v.Vaildate()
+	}
+	return nil
 }
 
 func POST[T any](route string, h Handler[T]) {
@@ -53,9 +68,14 @@ type User struct {
 }
 
 type CreateUserParams struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Username string `json:"username"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	Username         string `json:"username"`
+	VerificationCode int    `json:"code"`
+}
+
+func (c CreateUserParams) Validate() []error {
+	return []error{fmt.Errorf("Damn")}
 }
 
 func handlerCreateUser[T any](c Context[T]) error {
