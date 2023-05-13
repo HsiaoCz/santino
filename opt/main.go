@@ -81,9 +81,11 @@ func (c CreateUserParams) Validate() []error {
 func handlerCreateUser[T any](c Context[T]) error {
 	userParams := c.RequestParam
 	fmt.Println(userParams)
-	var user any
-	return JSON(http.StatusOK, user)
+	var user User
+	return Page("user", user)
 }
+
+func Page(file string, v any) error { return nil }
 
 func JSON(code int, v any) error {
 	return nil
